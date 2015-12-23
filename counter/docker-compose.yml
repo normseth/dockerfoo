@@ -1,10 +1,12 @@
 web:
   image: bfirsh/compose-mongodb-demo
+  # image: localhost:5000/mh-demo-web
   environment:
     - "MONGO_HOST=counter_mongo_1"
-    - "constraint:node==swl-demo0"
+    - "constraint:node==demo01"
   ports:
     - "80:5000"
 
 mongo:
+  # image: localhost:5000/mongo
   image: mongo

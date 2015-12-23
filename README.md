@@ -1,45 +1,51 @@
-# docker-network-demos
-Demos of Docker's New Networking
+<!-- See Also: Evernote "Docker Orchestration" -->
 
-This repo contains a bunch of scripts for you to get started with Docker's new networking features 
+## Simple Laptop Setup
+Install Docker Toolbox
 
-## Pre-Requsites
+## Multi-Host Demo with Swarm & Compose
 
-These scripts assume the following
+Steps
+1. Clone github.com:dave-tucker/docker-network-demos.git (The remaining steps require tweaking some names, but basically we're following scripts in this repo.)
+1. Add registry container to 'demo-dependencies' host in swarm-local.sh.
+1. Launch dependency host and registry container.
+1. Pull containers needed for demo from Docker Hub (including consul).
+  ```
+  for i in 'progrium/consul' 'mongo' 'bfirsh/compose-mongodb-demo' ; do
+    docker pull $i
+  done
+  ```
+1. Tag and push them into local registry.
+  ```
+  docker tag progrium/consul localhost:5000/consul
+  docker tag mongo localhost:5000/mongodb
+  docker tag bfirsh/compose-mongodb-demo localhost:5000/mh-demo-web
 
-1) You have Docker Machine installed
-2) You are using Docker 1.9 or later
+  docker push localhost:5000/consul
+  docker push localhost:5000/mongodb
+  docker push localhost:5000/mh-demo-web
+  ```
 
-Both of these components can be installed using the [Docker Toolbox](https://www.docker.com/docker-toolbox)
+1. Launch consul container.
+1. Launch demo hosts as a Swarm cluster.
+<!-- 1. Update web demo yaml file to pull from local registry.  Need to set up registry with TLS for this.  See https://github.com/docker/distribution/blob/master/docs/deploying.md -->
+1. Increase the disk allocation in the yaml file (bombs out due to space, otherwise (I doubled it)).
+1. Point your docker client to the swarm 'machine': ```eval "$(docker-machine env demo01)"```
+1. Build the demo:
+  ```
+  docker-compose --file counter/docker-compose.yml --x-networking --x-network-driver overlay up -d
+  ```
+1. Test it out: ```curl http://`docker-machine ip demo01` ```
 
-## What's what?
+## Things that might be confusing
+* Port publishing: the web container publishes 80:5000, and you can't hit it on 80 without that line.
+  Publishing is HOST_PORT:CONTAINER_PORT.
+  Need to remember that when using CLI, I'm accessing a service running in a container running in a VM.
+  So from my perspective, I need to hit HOST_IP:HOST_PORT, and HOST_IP isn't localhost.
 
-| Environment                            | Script Name          |
-|----------------------------------------|----------------------|
-| Multi-host Networking using Virtualbox | `multihost-local.sh` |
-| Multi-host Networking using Amazon EC2 | `multihost-aws.sh`   |
-| Swarm w/ Networking on Virtualbox      | `swarm-local.sh`     |
-| Swarm w/ Networking on Amazon EC2      | `swarm-aws.sh`       |
+* I have two containers trying to publish port 5000.  Aren't they going to conflict?   
+  No, because they are on different VM hosts.
 
-## Adapting to your environment
+* How does the web container know the location of the mongo container?
 
-So you want to use a different Docker Machine driver! Cool.
-Here are some things you might want to know
-
-- You can "borrow" the security group configuration from the AWS scripts
-- You *MUST* check the interface name used for `cluster-advertise`. Pick the wrong name and your daemon won't start
-
-## What to do next
-
-Check out the [docs](http://docs.docker.com/engine/userguide/networking/dockernetworks/)
-Have fun!
-
-## Contributing?
-
-Made changes? Want to contribute a new script for another cloud provider... or even for networking across clouds?
-Raise a PR!
-
-## License
-
-Apache 2.0
-https://www.apache.org/licenses/LICENSE-2.0.txt
+## Adding a Private Registry
